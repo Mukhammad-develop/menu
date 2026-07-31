@@ -4,7 +4,7 @@ import {
   getCategories,
   isDemoMode,
 } from '@/lib/data';
-import { deleteMenuItem, logout } from '@/app/actions';
+import { createCategory, deleteMenuItem, logout } from '@/app/actions';
 import MenuItemForm from '@/components/MenuItemForm';
 
 // Access is enforced by middleware.ts (menu_admin cookie).
@@ -44,6 +44,47 @@ export default async function AdminPage() {
           чтобы включить редактирование.
         </p>
       )}
+
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+        <h2 className="mb-3 text-lg font-semibold">
+          Категории ({categories.length})
+        </h2>
+        <div className="mb-4 flex flex-wrap gap-2">
+          {categories.map((c) => (
+            <span
+              key={c.id}
+              className="rounded-full border border-white/15 px-3 py-1 text-sm text-white/70"
+            >
+              {c.name}
+            </span>
+          ))}
+          {categories.length === 0 && (
+            <span className="text-sm text-white/40">
+              Пока нет ни одной категории.
+            </span>
+          )}
+        </div>
+        <form
+          action={async (formData: FormData) => {
+            'use server';
+            await createCategory(String(formData.get('name') ?? ''));
+          }}
+          className="flex flex-wrap gap-2"
+        >
+          <input
+            name="name"
+            required
+            placeholder="Новая категория (напр. Салаты)"
+            className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none focus:border-neon"
+          />
+          <button
+            type="submit"
+            className="rounded-lg bg-neon px-4 py-2 text-sm font-semibold text-black transition-opacity hover:opacity-90"
+          >
+            Добавить категорию
+          </button>
+        </form>
+      </section>
 
       <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
         <details>

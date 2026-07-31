@@ -48,6 +48,44 @@ export async function logout(): Promise<ActionResult> {
   return { ok: true };
 }
 
+// --- Categories --------------------------------------------------------------
+
+const TRANSLIT: Record<string, string> = {
+  а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'yo', ж: 'zh',
+  з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o',
+  п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts',
+  ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya',
+};
+
+function slugifyCategory(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .split('')
+    .map((c) => TRANSLIT[c] ?? c)
+    .join('')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug || `cat-${Date.now().toString(36)}`;
+}
+
+export async function createCategory(name: string): Promise<ActionResult> {
+  if (isDemoMode()) {
+    return { ok: false, error: 'Database not connected' };
+  }
+  const trimmed = name.trim();
+  if (!trimmed) return { ok: false, error: 'Введите название категории' };
+  try {
+    await prisma.category.create({
+      data: { name: trimmed, slug: slugifyCategory(trimmed) },
+    });
+    revalidatePath('/');
+    revalidatePath('/admin');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Create failed' };
+  }
+}
+
 // --- Menu item CRUD (demo mode is read-only) ------------------------------
 
 export async function createMenuItem(data: MenuItemInput): Promise<ActionResult> {
