@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createMenuItem, updateMenuItem, uploadVideo } from '@/app/actions';
 import type { Category, MenuItem } from '@/lib/data';
@@ -32,6 +32,15 @@ export default function MenuItemForm({ categories, item }: MenuItemFormProps) {
   const enqueue = useActionQueue();
   const router = useRouter();
 
+  // Keep categoryId valid: after adding the first category (or a refresh
+  // changing the list), state initialized from an empty list stays stale.
+  useEffect(() => {
+    if (!categories.some((c) => c.id === categoryId)) {
+      setCategoryId(categories[0]?.id ?? '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories]);
+
   if (categories.length === 0) {
     return (
       <p className="text-sm text-yellow-200">
@@ -43,6 +52,10 @@ export default function MenuItemForm({ categories, item }: MenuItemFormProps) {
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!categoryId) {
+      setError('Выберите категорию');
+      return;
+    }
     if (!videoFile && !videoUrl.trim()) {
       setError('Добавьте видео: загрузите файл или укажите URL');
       return;
