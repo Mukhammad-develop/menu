@@ -2,7 +2,10 @@
 /node_modules
 
 # next.js
-/.next/
+# .next build output IS committed: the cPanel server cannot run `next build`
+# (CloudLinux thread limits), so the compiled app ships via git.
+# The webpack cache is machine-specific and huge — always ignored.
+/.next/cache/
 /out/
 
 # production
