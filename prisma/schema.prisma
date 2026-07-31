@@ -1,9 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // CloudLinux host is RHEL-based — ship the rhel-openssl-3.0.x engine so
+  // the client generated on macOS/Linux also runs on the server.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 

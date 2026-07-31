@@ -19,3 +19,7 @@ next-env.d.ts
 # misc
 .DS_Store
 .vercel
+
+# uploaded videos (keep the directory, ignore its contents)
+public/uploads/videos/*
+!public/uploads/videos/.gitkeep

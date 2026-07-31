@@ -5,8 +5,8 @@ import { uploadVideo } from '@/app/actions';
 import { useActionQueue } from '@/hooks/use-action-queue';
 
 interface UploadFormProps {
-  // Called with the public Blob URL after a successful upload, so a parent
-  // form can fill its videoUrl field automatically.
+  // Called with the public /uploads/videos/... URL after a successful
+  // upload, so a parent form can fill its videoUrl field automatically.
   onUploaded?: (url: string) => void;
 }
 

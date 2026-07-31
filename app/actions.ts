@@ -2,7 +2,9 @@
 
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { put } from '@vercel/blob';
+import { mkdir, writeFile } from 'fs/promises';
+import path from 'path';
+import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/db';
 import { isDemoMode } from '@/lib/data';
 
@@ -98,23 +100,46 @@ export async function deleteMenuItem(id: string): Promise<ActionResult> {
   }
 }
 
-// --- Video upload (Vercel Blob) --------------------------------------------
+// --- Video upload (filesystem) ----------------------------------------------
+// Saves to public/uploads/videos/ so Next serves the file as a static asset.
+// No database involved — uploads work in demo mode too.
+
+const MIME_TO_EXT: Record<string, string> = {
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
+  'video/quicktime': 'mov',
+  'video/x-m4v': 'm4v',
+  'video/ogg': 'ogv',
+};
 
 export async function uploadVideo(
   formData: FormData,
 ): Promise<{ ok: boolean; url?: string; error?: string }> {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return { ok: false, error: 'BLOB_READ_WRITE_TOKEN not set' };
-  }
-  const file = formData.get('video');
-  if (!(file instanceof File) || file.size === 0) {
+  const value = formData.get('video');
+  // Duck-typed instead of `instanceof File`: on the server the parsed File
+  // can come from a different realm than the global, breaking instanceof.
+  if (
+    !value ||
+    typeof value === 'string' ||
+    typeof value.arrayBuffer !== 'function' ||
+    value.size === 0
+  ) {
     return { ok: false, error: 'No video file provided' };
   }
+  const file = value as File;
+  if (!file.type.startsWith('video/')) {
+    return { ok: false, error: 'File must be a video' };
+  }
   try {
-    const blob = await put(`videos/${Date.now()}-${file.name}`, file, {
-      access: 'public',
-    });
-    return { ok: true, url: blob.url };
+    const ext =
+      MIME_TO_EXT[file.type] ||
+      path.extname(file.name ?? '').slice(1).toLowerCase() ||
+      'mp4';
+    const filename = `${Date.now()}-${randomUUID()}.${ext}`;
+    const dir = path.join(process.cwd(), 'public', 'uploads', 'videos');
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
+    return { ok: true, url: `/uploads/videos/${filename}` };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Upload failed' };
   }
