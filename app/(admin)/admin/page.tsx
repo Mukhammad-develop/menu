@@ -119,6 +119,15 @@ export default async function AdminPage() {
                   <span className="text-neon">
                     {new Intl.NumberFormat('ru-RU').format(item.price)} ₽
                   </span>
+                  {' · '}
+                  <a
+                    href={item.videoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-white/40 underline decoration-white/20 underline-offset-2 hover:text-neon"
+                  >
+                    видео
+                  </a>
                 </p>
               </div>
               <form
