@@ -10,14 +10,11 @@ interface VideoFeedProps {
 }
 
 export default function VideoFeed({ categories, items }: VideoFeedProps) {
-  const [activeCategory, setActiveCategory] = useState('all');
+  const [activeCategory, setActiveCategory] = useState(categories[0]?.slug || '');
   const [index, setIndex] = useState(0);
 
   const filtered = useMemo(
-    () =>
-      activeCategory === 'all'
-        ? items
-        : items.filter((item) => item.category.slug === activeCategory),
+    () => items.filter((item) => item.category.slug === activeCategory),
     [items, activeCategory],
   );
 
@@ -31,14 +28,23 @@ export default function VideoFeed({ categories, items }: VideoFeedProps) {
     if (current < filtered.length - 1) {
       setIndex(current + 1);
     } else {
-      // Loop back to start if at the end of category, or you could transition to next category
-      setIndex(0);
+      const catIndex = categories.findIndex((c) => c.slug === activeCategory);
+      if (catIndex !== -1) {
+        const nextCatIndex = (catIndex + 1) % categories.length;
+        setActiveCategory(categories[nextCatIndex].slug);
+      }
     }
   };
 
   const goPrev = () => {
     if (current > 0) {
       setIndex(current - 1);
+    } else {
+      const catIndex = categories.findIndex((c) => c.slug === activeCategory);
+      if (catIndex !== -1) {
+        const prevCatIndex = (catIndex - 1 + categories.length) % categories.length;
+        setActiveCategory(categories[prevCatIndex].slug);
+      }
     }
   };
 
@@ -126,26 +132,33 @@ function Slide({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [progress, setProgress] = useState(0);
+  const rafRef = useRef<number>();
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+
+    const updateProgress = () => {
+      if (video.duration) {
+        setProgress((video.currentTime / video.duration) * 100);
+      }
+      rafRef.current = requestAnimationFrame(updateProgress);
+    };
+
     if (active) {
       video.currentTime = 0;
       setProgress(0);
       video.play().catch(() => {});
+      rafRef.current = requestAnimationFrame(updateProgress);
     } else {
       video.pause();
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     }
-  }, [active]);
 
-  const handleTimeUpdate = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    if (video.duration) {
-      setProgress((video.currentTime / video.duration) * 100);
-    }
-  };
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [active]);
 
   // Keep neighbouring slides mounted for preload, but visually hidden
   if (!active && Math.abs(currentIndex - itemIndex) > 1) {
@@ -166,7 +179,6 @@ function Slide({
         playsInline
         preload={Math.abs(currentIndex - itemIndex) <= 1 ? 'auto' : 'none'}
         className="h-full w-full object-cover pointer-events-none"
-        onTimeUpdate={handleTimeUpdate}
         onEnded={onEnded}
       />
 
@@ -179,7 +191,7 @@ function Slide({
             {Array.from({ length: total }).map((_, i) => (
               <div key={i} className="h-[3px] flex-1 bg-white/30 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-white transition-all duration-100 ease-linear"
+                  className="h-full bg-white"
                   style={{
                     width:
                       i < currentIndex

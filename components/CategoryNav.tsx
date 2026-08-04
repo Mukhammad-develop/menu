@@ -4,31 +4,53 @@ import type { Category } from '@/lib/data';
 
 interface CategoryNavProps {
   categories: Category[];
-  active: string; // 'all' or a category slug
+  active: string;
   onSelect: (slug: string) => void;
 }
 
-// Horizontally scrollable category carousel with rounded square buttons
+// Circular "coverflow" style spotlight carousel
 export default function CategoryNav({
   categories,
   active,
   onSelect,
 }: CategoryNavProps) {
-  const pills = [{ slug: 'all', name: 'Все позиции' }, ...categories];
+  const activeIndex = categories.findIndex((c) => c.slug === active);
+  const len = categories.length;
 
   return (
-    <div className="no-scrollbar flex gap-2 overflow-x-auto px-5 py-2">
-      {pills.map((pill) => {
-        const isActive = active === pill.slug;
+    <div className="relative flex h-24 w-full items-center justify-center overflow-hidden">
+      {categories.map((pill, i) => {
+        // Calculate shortest distance in circular array
+        let diff = (i - activeIndex) % len;
+        if (diff < 0) diff += len;
+        if (diff > Math.floor(len / 2)) {
+          diff -= len;
+        }
+
+        const absDiff = Math.abs(diff);
+        const isActive = diff === 0;
+        const isVisible = absDiff <= 2;
+
+        const translateX = diff * 80; // 80px shift per item
+        const scale = isActive ? 1.15 : Math.max(1 - absDiff * 0.2, 0.7);
+        const opacity = isActive ? 1 : Math.max(1 - absDiff * 0.4, 0);
+        const zIndex = 10 - absDiff;
+
         return (
           <button
             key={pill.slug}
             onClick={() => onSelect(pill.slug)}
-            className={`flex h-[72px] w-[72px] shrink-0 flex-col items-center justify-center rounded-[18px] border backdrop-blur-md transition-colors duration-200 ${
+            className={`absolute flex h-[72px] w-[72px] flex-col items-center justify-center rounded-[18px] border backdrop-blur-md transition-all duration-300 ease-out ${
               isActive
-                ? 'border-[#C6FF3D] bg-black/40 text-[#C6FF3D]'
-                : 'border-white/20 bg-black/20 text-white/90 hover:bg-black/40'
+                ? 'border-[#C6FF3D] bg-black/60 text-[#C6FF3D] shadow-[0_0_15px_rgba(198,255,61,0.25)]'
+                : 'border-white/20 bg-black/20 text-white/70 hover:bg-black/40'
             }`}
+            style={{
+              transform: `translateX(${translateX}px) scale(${scale})`,
+              opacity: isVisible ? opacity : 0,
+              zIndex,
+              pointerEvents: isVisible ? 'auto' : 'none',
+            }}
           >
             <span
               className="text-center text-[11px] font-medium leading-[1.2] tracking-wide"
