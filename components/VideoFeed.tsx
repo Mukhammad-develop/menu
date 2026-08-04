@@ -1,15 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { motion, PanInfo } from 'framer-motion';
 import type { Category, MenuItem } from '@/lib/data';
 import CategoryNav from './CategoryNav';
-
-// Vertical drag distance (px) that counts as a swipe to the next/prev dish.
-const SWIPE_THRESHOLD = 80;
-// Cooldown after a wheel-triggered slide change, so one scroll gesture
-// doesn't skip through several dishes at once.
-const WHEEL_COOLDOWN_MS = 600;
 
 interface VideoFeedProps {
   categories: Category[];
@@ -19,7 +12,6 @@ interface VideoFeedProps {
 export default function VideoFeed({ categories, items }: VideoFeedProps) {
   const [activeCategory, setActiveCategory] = useState('all');
   const [index, setIndex] = useState(0);
-  const wheelLock = useRef(false);
 
   const filtered = useMemo(
     () =>
@@ -29,88 +21,73 @@ export default function VideoFeed({ categories, items }: VideoFeedProps) {
     [items, activeCategory],
   );
 
-  // Filtering resets the feed to the first dish.
   useEffect(() => {
     setIndex(0);
   }, [activeCategory]);
 
-  const go = (dir: 1 | -1) => {
-    setIndex((i) => Math.min(Math.max(i + dir, 0), filtered.length - 1));
-  };
-
-  // Clamp the index so it stays valid when the filtered list shrinks.
   const current = Math.min(index, Math.max(filtered.length - 1, 0));
 
-  const onDragEnd = (_: unknown, info: PanInfo) => {
-    if (info.offset.y < -SWIPE_THRESHOLD) go(1);
-    else if (info.offset.y > SWIPE_THRESHOLD) go(-1);
+  const goNext = () => {
+    if (current < filtered.length - 1) {
+      setIndex(current + 1);
+    } else {
+      // Loop back to start if at the end of category, or you could transition to next category
+      setIndex(0);
+    }
   };
 
-  const onWheel = (e: React.WheelEvent) => {
-    if (wheelLock.current || Math.abs(e.deltaY) < 20) return;
-    wheelLock.current = true;
-    go(e.deltaY > 0 ? 1 : -1);
-    setTimeout(() => {
-      wheelLock.current = false;
-    }, WHEEL_COOLDOWN_MS);
+  const goPrev = () => {
+    if (current > 0) {
+      setIndex(current - 1);
+    }
   };
 
-  // Keyboard arrows for desktop testing.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown') go(1);
-      else if (e.key === 'ArrowUp') go(-1);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtered.length]);
+  const onPointerDown = (e: React.PointerEvent) => {
+    // Avoid triggering navigation when clicking on the category nav area
+    const target = e.target as HTMLElement;
+    if (target.closest('.category-nav-container')) return;
 
-  // Render only the active slide and its immediate neighbours.
-  const windowed = [current - 1, current, current + 1].filter(
-    (i) => i >= 0 && i < filtered.length,
-  );
+    const { clientX } = e;
+    const width = window.innerWidth;
+    if (clientX < width * 0.3) {
+      goPrev();
+    } else {
+      goNext();
+    }
+  };
 
   return (
-    <div
-      className="relative h-[100dvh] w-full touch-none select-none overflow-hidden bg-black"
-      onWheel={onWheel}
-    >
+    <div className="relative h-[100dvh] w-full touch-none select-none overflow-hidden bg-black">
       {filtered.length === 0 ? (
         <div className="flex h-full items-center justify-center text-white/50">
           Нет блюд в этой категории
         </div>
       ) : (
-        <motion.div
-          className="h-full w-full"
-          drag="y"
-          dragConstraints={{ top: 0, bottom: 0 }}
-          dragElastic={0.15}
-          onDragEnd={onDragEnd}
-        >
-          {windowed.map((i) => (
-            <motion.div
-              key={filtered[i].id}
-              className="absolute inset-0"
-              initial={false}
-              animate={{ y: `${(i - current) * 100}%` }}
-              transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-            >
-              <Slide item={filtered[i]} active={i === current} />
-            </motion.div>
+        <div className="h-full w-full" onPointerDown={onPointerDown}>
+          {filtered.map((item, i) => (
+            <Slide
+              key={item.id}
+              item={item}
+              active={i === current}
+              onEnded={goNext}
+              total={filtered.length}
+              currentIndex={current}
+              itemIndex={i}
+            />
           ))}
-        </motion.div>
+        </div>
       )}
 
       {/* Anchored bottom UI: category carousel + "Меню" label. */}
-      <div className="absolute inset-x-0 bottom-0 z-20 pb-3">
-        <CategoryNav
-          categories={categories}
-          active={activeCategory}
-          onSelect={setActiveCategory}
-        />
+      <div className="category-nav-container absolute inset-x-0 bottom-0 z-20 pb-3 pointer-events-none">
+        <div className="pointer-events-auto">
+          <CategoryNav
+            categories={categories}
+            active={activeCategory}
+            onSelect={setActiveCategory}
+          />
+        </div>
         <div className="mt-2 flex items-center justify-center gap-1.5 text-white/70">
-          {/* Tiny cloche icon in the neon accent colour. */}
           <svg
             width="14"
             height="14"
@@ -132,48 +109,95 @@ export default function VideoFeed({ categories, items }: VideoFeedProps) {
   );
 }
 
-function Slide({ item, active }: { item: MenuItem; active: boolean }) {
+function Slide({
+  item,
+  active,
+  onEnded,
+  total,
+  currentIndex,
+  itemIndex,
+}: {
+  item: MenuItem;
+  active: boolean;
+  onEnded: () => void;
+  total: number;
+  currentIndex: number;
+  itemIndex: number;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [progress, setProgress] = useState(0);
 
-  // Only the active video plays; neighbours are paused and rewound.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
     if (active) {
-      video.play().catch(() => {
-        /* autoplay can be blocked before first user gesture */
-      });
+      video.currentTime = 0;
+      setProgress(0);
+      video.play().catch(() => {});
     } else {
       video.pause();
-      video.currentTime = 0;
     }
   }, [active]);
 
+  const handleTimeUpdate = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.duration) {
+      setProgress((video.currentTime / video.duration) * 100);
+    }
+  };
+
+  // Keep neighbouring slides mounted for preload, but visually hidden
+  if (!active && Math.abs(currentIndex - itemIndex) > 1) {
+    return null;
+  }
+
   return (
-    <div className="relative h-full w-full">
+    <div
+      className={`absolute inset-0 h-full w-full ${
+        active ? 'z-10 opacity-100' : 'z-0 opacity-0 pointer-events-none'
+      }`}
+    >
       <video
         ref={videoRef}
         src={item.videoUrl}
         poster={item.posterUrl ?? undefined}
         muted
-        loop
         playsInline
-        preload="metadata"
-        className="h-full w-full object-cover"
+        preload={Math.abs(currentIndex - itemIndex) <= 1 ? 'auto' : 'none'}
+        className="h-full w-full object-cover pointer-events-none"
+        onTimeUpdate={handleTimeUpdate}
+        onEnded={onEnded}
       />
 
-      {/* Top gradient keeps the dish info readable over any video. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-2/5 bg-gradient-to-b from-black/80 via-black/40 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-black/80 via-black/40 to-transparent" />
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 p-6 pt-10">
-        <span className="text-xs uppercase tracking-widest text-white/60">
-          {item.category.name}
-        </span>
-        <h1 className="mt-1 text-3xl font-bold leading-tight">{item.title}</h1>
-        <p className="mt-2 line-clamp-2 max-w-md text-sm text-white/75">
-          {item.description}
-        </p>
-        <p className="mt-3 text-2xl font-extrabold text-neon">
+      <div className="pointer-events-none absolute inset-x-0 top-0 px-4 pt-6">
+        {/* Progress Bars */}
+        {active && (
+          <div className="flex gap-1.5 mb-6">
+            {Array.from({ length: total }).map((_, i) => (
+              <div key={i} className="h-[3px] flex-1 bg-white/30 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-white transition-all duration-100 ease-linear"
+                  style={{
+                    width:
+                      i < currentIndex
+                        ? '100%'
+                        : i === currentIndex
+                        ? `${progress}%`
+                        : '0%',
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <h1 className="text-[26px] font-bold leading-tight text-white mb-2 drop-shadow-md">
+          {item.title}
+        </h1>
+        <p className="text-[22px] font-extrabold text-white drop-shadow-md">
           {new Intl.NumberFormat('ru-RU').format(item.price)} ₽
         </p>
       </div>
