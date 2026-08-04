@@ -86,6 +86,20 @@ export async function createCategory(name: string): Promise<ActionResult> {
   }
 }
 
+export async function deleteCategory(id: string): Promise<ActionResult> {
+  if (isDemoMode()) {
+    return { ok: false, error: 'Database not connected' };
+  }
+  try {
+    await prisma.category.delete({ where: { id } });
+    revalidatePath('/');
+    revalidatePath('/admin');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Delete failed (maybe it has items?)' };
+  }
+}
+
 // --- Menu item CRUD (demo mode is read-only) ------------------------------
 
 export async function createMenuItem(data: MenuItemInput): Promise<ActionResult> {

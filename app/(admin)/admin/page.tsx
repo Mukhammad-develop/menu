@@ -4,8 +4,9 @@ import {
   getCategories,
   isDemoMode,
 } from '@/lib/data';
-import { createCategory, deleteMenuItem, logout } from '@/app/actions';
+import { createCategory, deleteMenuItem, deleteCategory, logout } from '@/app/actions';
 import MenuItemForm from '@/components/MenuItemForm';
+import DeleteButton from '@/components/DeleteButton';
 
 // Access is enforced by middleware.ts (menu_admin cookie).
 export const dynamic = 'force-dynamic';
@@ -51,12 +52,20 @@ export default async function AdminPage() {
         </h2>
         <div className="mb-4 flex flex-wrap gap-2">
           {categories.map((c) => (
-            <span
-              key={c.id}
-              className="rounded-full border border-white/15 px-3 py-1 text-sm text-white/70"
-            >
-              {c.name}
-            </span>
+            <div key={c.id} className="flex items-center gap-1 rounded-full border border-white/15 pl-3 pr-1 py-1">
+              <span className="text-sm text-white/70">
+                {c.name}
+              </span>
+              <DeleteButton 
+                action={async () => {
+                  'use server';
+                  return deleteCategory(c.id);
+                }}
+                text="✕"
+                className="flex h-5 w-5 items-center justify-center rounded-full text-white/40 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+                confirmMessage={`Удалить категорию "${c.name}"? Убедитесь, что в ней нет блюд.`}
+              />
+            </div>
           ))}
           {categories.length === 0 && (
             <span className="text-sm text-white/40">
@@ -130,19 +139,13 @@ export default async function AdminPage() {
                   </a>
                 </p>
               </div>
-              <form
+              <DeleteButton
                 action={async () => {
                   'use server';
-                  await deleteMenuItem(item.id);
+                  return deleteMenuItem(item.id);
                 }}
-              >
-                <button
-                  type="submit"
-                  className="rounded-lg border border-red-500/40 px-3 py-1.5 text-sm text-red-400 transition-colors hover:bg-red-500/10"
-                >
-                  Удалить
-                </button>
-              </form>
+                confirmMessage={`Удалить блюдо "${item.title}"?`}
+              />
             </div>
             <details className="mt-3">
               <summary className="cursor-pointer text-sm text-white/60 hover:text-white">
