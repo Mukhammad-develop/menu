@@ -117,7 +117,7 @@ export default async function AdminPage() {
                 <p className="mt-1 text-sm text-white/60">
                   {item.category.name} ·{' '}
                   <span className="text-neon">
-                    {new Intl.NumberFormat('ru-RU').format(item.price)} ₽
+                    {new Intl.NumberFormat('ru-RU').format(item.price)} UZS
                   </span>
                   {' · '}
                   <a

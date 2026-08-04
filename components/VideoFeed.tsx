@@ -210,7 +210,7 @@ function Slide({
           {item.title}
         </h1>
         <p className="text-[22px] font-extrabold text-white drop-shadow-md">
-          {new Intl.NumberFormat('ru-RU').format(item.price)} ₽
+          {new Intl.NumberFormat('ru-RU').format(item.price)} UZS
         </p>
       </div>
     </div>
