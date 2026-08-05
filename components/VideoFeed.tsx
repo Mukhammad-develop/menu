@@ -206,9 +206,14 @@ function Slide({
           </div>
         )}
 
-        <h1 className="text-[26px] font-bold leading-tight text-white mb-2 drop-shadow-md">
+        <h1 className="text-[26px] font-bold leading-tight text-white mb-1 drop-shadow-md">
           {item.title}
         </h1>
+        {item.description && (
+          <p className="mb-2 text-sm font-medium leading-snug text-white/70 drop-shadow-md max-w-[90%]">
+            {item.description}
+          </p>
+        )}
         <p className="text-[22px] font-extrabold text-white drop-shadow-md">
           {new Intl.NumberFormat('ru-RU').format(item.price)} UZS
         </p>
