@@ -1,17 +1,19 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Category, MenuItem } from '@/lib/data';
+import { type Category, type MenuItem, type LangCode, t } from '@/lib/data';
 import CategoryNav from './CategoryNav';
 
 interface VideoFeedProps {
   categories: Category[];
   items: MenuItem[];
+  languages: LangCode[];
 }
 
-export default function VideoFeed({ categories, items }: VideoFeedProps) {
+export default function VideoFeed({ categories, items, languages }: VideoFeedProps) {
   const [activeCategory, setActiveCategory] = useState(categories[0]?.slug || '');
   const [index, setIndex] = useState(0);
+  const [langCode, setLangCode] = useState<LangCode>(languages[0]);
 
   const filtered = useMemo(
     () => items.filter((item) => item.category.slug === activeCategory),
@@ -52,6 +54,7 @@ export default function VideoFeed({ categories, items }: VideoFeedProps) {
     // Avoid triggering navigation when clicking on the category nav area
     const target = e.target as HTMLElement;
     if (target.closest('.category-nav-container')) return;
+    if (target.closest('.lang-switcher')) return;
 
     const { clientX } = e;
     const width = window.innerWidth;
@@ -79,10 +82,28 @@ export default function VideoFeed({ categories, items }: VideoFeedProps) {
               total={filtered.length}
               currentIndex={current}
               itemIndex={i}
+              langCode={langCode}
             />
           ))}
         </div>
       )}
+
+      {/* Language Switcher */}
+      <div className="lang-switcher absolute top-6 right-4 z-20 flex gap-1 pointer-events-auto">
+        {languages.map((lang) => (
+          <button
+            key={lang}
+            onClick={() => setLangCode(lang)}
+            className={`px-2 py-1 text-xs font-bold rounded transition-colors ${
+              lang === langCode 
+                ? 'bg-[#C6FF3D] text-black' 
+                : 'bg-black/40 text-white/70 backdrop-blur-md'
+            }`}
+          >
+            {lang.toUpperCase()}
+          </button>
+        ))}
+      </div>
 
       {/* Anchored bottom UI: category carousel + "Меню" label. */}
       <div className="category-nav-container absolute inset-x-0 bottom-0 z-20 pb-3 pointer-events-none">
@@ -91,6 +112,7 @@ export default function VideoFeed({ categories, items }: VideoFeedProps) {
             categories={categories}
             active={activeCategory}
             onSelect={setActiveCategory}
+            langCode={langCode}
           />
         </div>
         <div className="mt-2 flex items-center justify-center gap-1.5 text-white/70">
@@ -122,6 +144,7 @@ function Slide({
   total,
   currentIndex,
   itemIndex,
+  langCode,
 }: {
   item: MenuItem;
   active: boolean;
@@ -129,6 +152,7 @@ function Slide({
   total: number;
   currentIndex: number;
   itemIndex: number;
+  langCode: LangCode;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [progress, setProgress] = useState(0);
@@ -164,6 +188,9 @@ function Slide({
   if (!active && Math.abs(currentIndex - itemIndex) > 1) {
     return null;
   }
+
+  const translatedTitle = t(item.translations, langCode)?.title ?? '';
+  const translatedDescription = t(item.translations, langCode)?.description ?? '';
 
   return (
     <div
@@ -207,11 +234,11 @@ function Slide({
         )}
 
         <h1 className="text-[26px] font-bold leading-tight text-white mb-1 drop-shadow-md">
-          {item.title}
+          {translatedTitle}
         </h1>
-        {item.description && (
+        {translatedDescription && (
           <p className="mb-2 text-sm font-medium leading-snug text-white/70 drop-shadow-md max-w-[90%]">
-            {item.description}
+            {translatedDescription}
           </p>
         )}
         <p className="text-[22px] font-extrabold text-white drop-shadow-md">

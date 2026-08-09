@@ -1,166 +1,119 @@
 import { redirect } from 'next/navigation';
-import {
-  getAllMenuItems,
-  getCategories,
-  isDemoMode,
-} from '@/lib/data';
-import { createCategory, deleteMenuItem, deleteCategory, logout } from '@/app/actions';
-import MenuItemForm from '@/components/MenuItemForm';
+import { getRestaurants, isDemoMode, SUPPORTED_LANGUAGES, LANGUAGE_LABELS, LangCode } from '@/lib/data';
+import { createRestaurant, deleteRestaurant, logout } from '@/app/actions';
 import DeleteButton from '@/components/DeleteButton';
+import Link from 'next/link';
 
-// Access is enforced by middleware.ts (menu_admin cookie).
 export const dynamic = 'force-dynamic';
 
-export default async function AdminPage() {
-  const [categories, items] = await Promise.all([
-    getCategories(),
-    getAllMenuItems(),
-  ]);
-  const demo = isDemoMode();
+export default async function AdminDashboard() {
+  const restaurants = await getRestaurants();
+  const demoMode = isDemoMode();
 
   return (
-    <main className="mx-auto max-w-4xl space-y-8 p-6 pb-16">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Админ-панель</h1>
-        <form
-          action={async () => {
-            'use server';
-            await logout();
-            redirect('/admin/login');
-          }}
-        >
-          <button
-            type="submit"
-            className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/70 transition-colors hover:bg-white/10"
-          >
-            Выйти
+    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Admin Panel</h1>
+        <form action={async () => {
+          'use server';
+          await logout();
+          redirect('/admin/login');
+        }}>
+          <button className="text-sm px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
+            Logout
           </button>
         </form>
-      </header>
+      </div>
 
-      {demo && (
-        <p className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-200">
-          Демо-режим: база данных не подключена (DATABASE_URL не задан).
-          Данные ниже доступны только для чтения — установите DATABASE_URL,
-          чтобы включить редактирование.
-        </p>
+      {demoMode && (
+        <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 p-4 rounded-xl text-sm">
+          Demo mode is active. Changes will not be saved.
+        </div>
       )}
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
-        <h2 className="mb-3 text-lg font-semibold">
-          Категории ({categories.length})
-        </h2>
-        <div className="mb-4 flex flex-wrap gap-2">
-          {categories.map((c) => (
-            <div key={c.id} className="flex items-center gap-1 rounded-full border border-white/15 pl-3 pr-1 py-1">
-              <span className="text-sm text-white/70">
-                {c.name}
-              </span>
-              <DeleteButton 
-                action={async () => {
-                  'use server';
-                  return deleteCategory(c.id);
-                }}
-                text="✕"
-                className="flex h-5 w-5 items-center justify-center rounded-full text-white/40 hover:bg-red-500/20 hover:text-red-400 transition-colors"
-                confirmMessage={`Удалить категорию "${c.name}"? Убедитесь, что в ней нет блюд.`}
-              />
-            </div>
-          ))}
-          {categories.length === 0 && (
-            <span className="text-sm text-white/40">
-              Пока нет ни одной категории.
-            </span>
-          )}
-        </div>
-        <form
-          action={async (formData: FormData) => {
-            'use server';
-            await createCategory(String(formData.get('name') ?? ''));
-          }}
-          className="flex flex-wrap gap-2"
-        >
-          <input
-            name="name"
-            required
-            placeholder="Новая категория (напр. Салаты)"
-            className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none focus:border-neon"
-          />
-          <button
-            type="submit"
-            className="rounded-lg bg-neon px-4 py-2 text-sm font-semibold text-black transition-opacity hover:opacity-90"
-          >
-            Добавить категорию
-          </button>
-        </form>
-      </section>
-
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
-        <details>
-          <summary className="cursor-pointer text-lg font-semibold text-neon">
-            + Добавить блюдо
-          </summary>
-          <div className="mt-4">
-            <MenuItemForm categories={categories} />
-          </div>
-        </details>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Блюда ({items.length})</h2>
-        {items.map((item) => (
-          <article
-            key={item.id}
-            className="rounded-2xl border border-white/10 bg-white/5 p-5"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold">{item.title}</h3>
-                  {!item.active && (
-                    <span className="rounded-full border border-white/20 px-2 py-0.5 text-xs text-white/50">
-                      скрыто
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold border-b border-white/10 pb-2">Restaurants</h2>
+        
+        <div className="grid gap-4">
+          {restaurants.map(r => (
+            <div key={r.id} className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-2xl">
+              <Link href={`/admin/restaurant/${r.id}`} className="flex-1 hover:opacity-80">
+                <div className="flex items-center gap-3">
+                  <h3 className="font-semibold text-lg">{r.name}</h3>
+                  <span className="text-sm text-gray-500">/{r.slug}</span>
+                </div>
+                <div className="flex gap-2 mt-2">
+                  {r.languages.map(lang => (
+                    <span key={lang} className="text-xs px-2 py-0.5 bg-neon/10 text-neon rounded-full">
+                      {LANGUAGE_LABELS[lang]}
+                    </span>
+                  ))}
+                  {r._count?.categories !== undefined && (
+                    <span className="text-xs px-2 py-0.5 bg-white/10 rounded-full text-gray-400">
+                      {r._count.categories} categories
                     </span>
                   )}
                 </div>
-                <p className="mt-1 text-sm text-white/60">
-                  {item.category.name} ·{' '}
-                  <span className="text-neon">
-                    {new Intl.NumberFormat('ru-RU').format(item.price)} UZS
-                  </span>
-                  {' · '}
-                  <a
-                    href={item.videoUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-white/40 underline decoration-white/20 underline-offset-2 hover:text-neon"
-                  >
-                    видео
-                  </a>
-                </p>
+              </Link>
+              <div className="ml-4 pl-4 border-l border-white/10">
+                <DeleteButton 
+                  action={async () => {
+                    'use server';
+                    return deleteRestaurant(r.id);
+                  }}
+                />
               </div>
-              <DeleteButton
-                action={async () => {
-                  'use server';
-                  return deleteMenuItem(item.id);
-                }}
-                confirmMessage={`Удалить блюдо "${item.title}"?`}
+            </div>
+          ))}
+          {restaurants.length === 0 && (
+            <div className="text-center py-8 text-gray-500 bg-white/5 rounded-2xl border border-white/10">
+              No restaurants found.
+            </div>
+          )}
+        </div>
+
+        <div className="mt-8 p-4 bg-white/5 border border-white/10 rounded-2xl">
+          <h3 className="font-semibold mb-4">Add New Restaurant</h3>
+          <form action={async (formData: FormData) => {
+            'use server';
+            const name = formData.get('name') as string;
+            const languages = SUPPORTED_LANGUAGES.filter(lang => formData.get(`lang_${lang}`) === 'on') as LangCode[];
+            if (!name || languages.length === 0) return;
+            await createRestaurant(name, languages);
+          }} className="space-y-4">
+            <div>
+              <label className="block text-sm mb-1 text-gray-400">Name</label>
+              <input 
+                type="text" 
+                name="name" 
+                required 
+                className="w-full bg-black border border-white/20 rounded p-2 text-white outline-none focus:border-neon"
               />
             </div>
-            <details className="mt-3">
-              <summary className="cursor-pointer text-sm text-white/60 hover:text-white">
-                Редактировать
-              </summary>
-              <div className="mt-4">
-                <MenuItemForm categories={categories} item={item} />
+            
+            <div>
+              <label className="block text-sm mb-2 text-gray-400">Languages</label>
+              <div className="flex flex-wrap gap-4">
+                {SUPPORTED_LANGUAGES.map(lang => (
+                  <label key={lang} className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      name={`lang_${lang}`}
+                      defaultChecked={lang === 'en' || lang === 'ru' || lang === 'uz'}
+                      className="rounded border-white/20 bg-black text-neon focus:ring-neon accent-neon"
+                    />
+                    <span className="text-sm">{LANGUAGE_LABELS[lang]}</span>
+                  </label>
+                ))}
               </div>
-            </details>
-          </article>
-        ))}
-        {items.length === 0 && (
-          <p className="text-sm text-white/50">Пока нет ни одного блюда.</p>
-        )}
+            </div>
+
+            <button type="submit" className="w-full bg-neon text-black font-semibold rounded p-2 hover:bg-neon/90">
+              Add Restaurant
+            </button>
+          </form>
+        </div>
       </section>
-    </main>
+    </div>
   );
 }

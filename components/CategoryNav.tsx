@@ -1,11 +1,12 @@
 'use client';
 
-import type { Category } from '@/lib/data';
+import { type Category, t } from '@/lib/data';
 
 interface CategoryNavProps {
   categories: Category[];
   active: string;
   onSelect: (slug: string) => void;
+  langCode: string;
 }
 
 // Circular "coverflow" style spotlight carousel
@@ -13,6 +14,7 @@ export default function CategoryNav({
   categories,
   active,
   onSelect,
+  langCode,
 }: CategoryNavProps) {
   const activeIndex = categories.findIndex((c) => c.slug === active);
   const len = categories.length;
@@ -35,6 +37,8 @@ export default function CategoryNav({
         const scale = isActive ? 1.15 : Math.max(1 - absDiff * 0.2, 0.7);
         const opacity = isActive ? 1 : Math.max(1 - absDiff * 0.4, 0);
         const zIndex = 10 - absDiff;
+        
+        const translatedName = t(pill.translations, langCode)?.name ?? pill.slug;
 
         return (
           <button
@@ -56,7 +60,7 @@ export default function CategoryNav({
               className="text-center text-[11px] font-medium leading-[1.2] tracking-wide"
               style={{ whiteSpace: 'pre-wrap' }}
             >
-              {pill.name.replace(' ', '\n')}
+              {translatedName.replace(' ', '\n')}
             </span>
           </button>
         );

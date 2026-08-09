@@ -2,41 +2,45 @@
 
 import { useState } from 'react';
 
-interface DeleteButtonProps {
+export default function DeleteButton({
+  action,
+  text = 'Delete',
+  className = '',
+  confirmMessage = 'Are you sure you want to delete this?'
+}: {
   action: () => Promise<{ ok: boolean; error?: string }>;
   text?: string;
   className?: string;
   confirmMessage?: string;
-}
+}) {
+  const [isDeleting, setIsDeleting] = useState(false);
 
-export default function DeleteButton({
-  action,
-  text = 'Удалить',
-  className = 'rounded-lg border border-red-500/40 px-3 py-1.5 text-sm text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50',
-  confirmMessage = 'Вы уверены, что хотите удалить это?',
-}: DeleteButtonProps) {
-  const [pending, setPending] = useState(false);
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm(confirmMessage)) return;
+    
+    setIsDeleting(true);
+    try {
+      const res = await action();
+      if (!res.ok) {
+        alert(res.error || 'Failed to delete');
+      }
+    } catch (e) {
+      alert('An error occurred');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <button
-      disabled={pending}
-      onClick={async () => {
-        if (!window.confirm(confirmMessage)) return;
-        setPending(true);
-        try {
-          const res = await action();
-          if (!res.ok) {
-            alert('Ошибка: ' + (res.error || 'Неизвестная ошибка'));
-          }
-        } catch (e: any) {
-          alert('Ошибка: ' + e.message);
-        } finally {
-          setPending(false);
-        }
-      }}
-      className={className}
+      onClick={handleDelete}
+      disabled={isDeleting}
+      className={`text-red-500 hover:text-red-400 disabled:opacity-50 text-sm font-medium ${className}`}
+      type="button"
     >
-      {pending ? '...' : text}
+      {isDeleting ? '...' : text}
     </button>
   );
 }

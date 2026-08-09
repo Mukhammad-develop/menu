@@ -1,208 +1,212 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useRef, useTransition } from 'react';
 import { createMenuItem, updateMenuItem, uploadVideo } from '@/app/actions';
-import type { Category, MenuItem } from '@/lib/data';
-import { useActionQueue } from '@/hooks/use-action-queue';
+import { Category, MenuItem, LangCode, LANGUAGE_LABELS } from '@/lib/data';
 
 interface MenuItemFormProps {
   categories: Category[];
-  // When provided the form edits this item, otherwise it creates a new one.
   item?: MenuItem;
+  restaurantId: string;
+  languages: LangCode[];
 }
 
-const inputCls =
-  'w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none focus:border-neon';
+export default function MenuItemForm({ categories, item, restaurantId, languages }: MenuItemFormProps) {
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState('');
+  
+  // Initialize translations
+  const initialTranslations = languages.reduce((acc, lang) => {
+    const existing = item?.translations?.find(t => t.langCode === lang);
+    acc[lang] = {
+      title: existing?.title || '',
+      description: existing?.description || ''
+    };
+    return acc;
+  }, {} as Record<string, { title: string; description: string }>);
 
-export default function MenuItemForm({ categories, item }: MenuItemFormProps) {
-  const [title, setTitle] = useState(item?.title ?? '');
-  const [description, setDescription] = useState(item?.description ?? '');
-  const [price, setPrice] = useState(item ? String(item.price) : '');
-  const [videoUrl, setVideoUrl] = useState(item?.videoUrl ?? '');
-  const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [categoryId, setCategoryId] = useState(
-    item?.categoryId ?? categories[0]?.id ?? '',
-  );
-  const [order, setOrder] = useState(item ? String(item.order) : '0');
-  const [active, setActive] = useState(item?.active ?? true);
-  const [status, setStatus] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-  const enqueue = useActionQueue();
-  const router = useRouter();
+  const [translations, setTranslations] = useState(initialTranslations);
+  const [videoUrl, setVideoUrl] = useState(item?.videoUrl || '');
+  const [uploading, setUploading] = useState(false);
 
-  // Keep categoryId valid: after adding the first category (or a refresh
-  // changing the list), state initialized from an empty list stays stale.
-  useEffect(() => {
-    if (!categories.some((c) => c.id === categoryId)) {
-      setCategoryId(categories[0]?.id ?? '');
+  const formRef = useRef<HTMLFormElement>(null);
+
+  async function handleVideoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setError('');
+
+    const formData = new FormData();
+    formData.append('video', file);
+
+    try {
+      const res = await uploadVideo(formData);
+      if (res.ok && res.url) {
+        setVideoUrl(res.url);
+      } else {
+        setError(res.error || 'Failed to upload video');
+      }
+    } catch (err) {
+      setError('An error occurred during upload');
+    } finally {
+      setUploading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categories]);
-
-  if (categories.length === 0) {
-    return (
-      <p className="text-sm text-yellow-200">
-        Сначала добавьте хотя бы одну категорию выше — без неё блюдо создать
-        нельзя.
-      </p>
-    );
   }
 
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!categoryId) {
-      setError('Выберите категорию');
+  async function handleSubmit(formData: FormData) {
+    setError('');
+    
+    if (!videoUrl) {
+      setError('Video is required');
       return;
     }
-    if (!videoFile && !videoUrl.trim()) {
-      setError('Добавьте видео: загрузите файл или укажите URL');
-      return;
-    }
-    setPending(true);
-    setError(null);
-    setStatus(null);
 
-    // Sequential dispatch: rapid repeated saves are applied one by one.
-    void enqueue(async () => {
-      // Upload-first: if a file is chosen, it wins over the URL field.
-      let finalVideoUrl = videoUrl.trim();
-      if (videoFile) {
-        const fd = new FormData();
-        fd.set('video', videoFile);
-        const up = await uploadVideo(fd);
-        if (!up.ok || !up.url) {
-          setPending(false);
-          setError(up.error ?? 'Ошибка загрузки видео');
-          return;
-        }
-        finalVideoUrl = up.url;
-      }
+    const price = Number(formData.get('price'));
+    const order = Number(formData.get('order'));
+    const categoryId = formData.get('categoryId') as string;
+    const active = formData.get('active') === 'on';
 
-      const data = {
-        title,
-        description,
-        price: parseFloat(price) || 0,
-        videoUrl: finalVideoUrl,
-        order: parseInt(order, 10) || 0,
-        active,
-        categoryId,
-      };
+    const data = {
+      price,
+      videoUrl,
+      order,
+      active,
+      categoryId,
+      translations
+    };
 
-      const res = item
+    startTransition(async () => {
+      const result = item 
         ? await updateMenuItem(item.id, data)
         : await createMenuItem(data);
-      setPending(false);
-      if (res.ok) {
-        setStatus('Сохранено');
-        setVideoFile(null);
-        router.refresh();
-      } else {
-        setError(res.error ?? 'Ошибка сохранения');
+        
+      if (!result.ok) {
+        setError(result.error || 'Something went wrong');
+      } else if (!item) {
+        formRef.current?.reset();
+        setVideoUrl('');
+        setTranslations(languages.reduce((acc, lang) => {
+          acc[lang] = { title: '', description: '' };
+          return acc;
+        }, {} as Record<string, { title: string; description: string }>));
       }
     });
-  };
+  }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Название блюда"
-          required
-          className={inputCls}
-        />
-        <input
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          placeholder="Цена"
-          type="number"
-          step="0.01"
-          min="0"
-          required
-          className={inputCls}
-        />
-      </div>
-      <textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Описание"
-        required
-        rows={2}
-        className={inputCls}
-      />
-      <div className="space-y-2">
-        <label className="block text-sm text-white/70">
-          Видео блюда (файл)
-        </label>
-        <input
-          type="file"
-          accept="video/*"
-          onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)}
-          className="w-full text-sm text-white/70 file:mr-3 file:rounded-lg file:border-0 file:bg-neon file:px-3 file:py-2 file:text-sm file:font-semibold file:text-black hover:file:opacity-90"
-        />
-        {videoFile ? (
-          <p className="text-xs text-neon">Выбрано: {videoFile.name}</p>
-        ) : item ? (
-          <p className="text-xs text-white/40">
-            Не выбирайте файл, чтобы оставить текущее видео.
-          </p>
-        ) : null}
-        <details>
-          <summary className="cursor-pointer text-xs text-white/50 hover:text-white/80">
-            или укажите URL видео
-          </summary>
-          <input
-            value={videoUrl}
-            onChange={(e) => setVideoUrl(e.target.value)}
-            placeholder="https://… (необязательно)"
-            type="url"
-            className={`${inputCls} mt-2`}
-          />
-        </details>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <select
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-          className={inputCls}
-        >
-          {categories.map((c) => (
-            <option key={c.id} value={c.id} className="bg-black">
-              {c.name}
-            </option>
+    <form ref={formRef} action={handleSubmit} className="space-y-4 bg-white/5 p-4 rounded-xl border border-white/10">
+      {error && <div className="text-red-500 text-sm p-2 bg-red-500/10 rounded">{error}</div>}
+      
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-4 md:col-span-2">
+          <h4 className="font-semibold text-white">Translations</h4>
+          {languages.map(lang => (
+            <div key={lang} className="space-y-2 p-3 bg-white/5 rounded-lg border border-white/5">
+              <label className="block text-sm font-medium text-neon">
+                {LANGUAGE_LABELS[lang]}
+              </label>
+              <input
+                type="text"
+                placeholder={`Title (${LANGUAGE_LABELS[lang]})`}
+                value={translations[lang]?.title || ''}
+                onChange={e => setTranslations(prev => ({
+                  ...prev,
+                  [lang]: { ...prev[lang], title: e.target.value }
+                }))}
+                required
+                className="w-full bg-black border border-white/20 rounded p-2 text-white focus:border-neon focus:ring-1 focus:ring-neon outline-none"
+              />
+              <textarea
+                placeholder={`Description (${LANGUAGE_LABELS[lang]})`}
+                value={translations[lang]?.description || ''}
+                onChange={e => setTranslations(prev => ({
+                  ...prev,
+                  [lang]: { ...prev[lang], description: e.target.value }
+                }))}
+                rows={2}
+                className="w-full bg-black border border-white/20 rounded p-2 text-white focus:border-neon focus:ring-1 focus:ring-neon outline-none"
+              />
+            </div>
           ))}
-        </select>
-        <input
-          value={order}
-          onChange={(e) => setOrder(e.target.value)}
-          placeholder="Порядок"
-          type="number"
-          className={inputCls}
-        />
-        <label className="flex items-center gap-2 text-sm text-white/80">
-          <input
-            type="checkbox"
-            checked={active}
-            onChange={(e) => setActive(e.target.checked)}
-            className="h-4 w-4 accent-[#C6FF3D]"
+        </div>
+
+        <div>
+          <label className="block text-sm mb-1 text-gray-400">Category</label>
+          <select 
+            name="categoryId" 
+            defaultValue={item?.categoryId} 
+            required
+            className="w-full bg-black border border-white/20 rounded p-2 text-white outline-none focus:border-neon"
+          >
+            <option value="">Select category...</option>
+            {categories.map(c => {
+              const name = c.translations?.[0]?.name || c.slug;
+              return <option key={c.id} value={c.id}>{name}</option>;
+            })}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm mb-1 text-gray-400">Price (UZS)</label>
+          <input 
+            type="number" 
+            name="price"
+            defaultValue={item?.price}
+            required
+            min="0"
+            className="w-full bg-black border border-white/20 rounded p-2 text-white outline-none focus:border-neon"
           />
-          Активно
-        </label>
+        </div>
+
+        <div>
+          <label className="block text-sm mb-1 text-gray-400">Order</label>
+          <input 
+            type="number" 
+            name="order"
+            defaultValue={item?.order || 0}
+            required
+            className="w-full bg-black border border-white/20 rounded p-2 text-white outline-none focus:border-neon"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm mb-1 text-gray-400">Video</label>
+          {videoUrl && (
+            <div className="mb-2">
+              <video src={videoUrl} className="h-20 rounded" controls muted />
+            </div>
+          )}
+          <input 
+            type="file" 
+            accept="video/*"
+            onChange={handleVideoUpload}
+            disabled={uploading}
+            className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-neon file:text-black hover:file:bg-neon/90"
+          />
+          {uploading && <div className="text-sm text-neon mt-1">Uploading...</div>}
+        </div>
       </div>
-      <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-lg bg-neon px-4 py-2 text-sm font-semibold text-black transition-opacity disabled:opacity-50"
-        >
-          {pending ? 'Сохранение…' : item ? 'Сохранить' : 'Добавить блюдо'}
-        </button>
-        {status && <span className="text-sm text-neon">{status}</span>}
-        {error && <span className="text-sm text-red-400">{error}</span>}
+
+      <div className="flex items-center gap-2">
+        <input 
+          type="checkbox" 
+          id={`active-${item?.id || 'new'}`}
+          name="active" 
+          defaultChecked={item ? item.active : true}
+          className="rounded border-white/20 bg-black text-neon focus:ring-neon accent-neon"
+        />
+        <label htmlFor={`active-${item?.id || 'new'}`} className="text-sm text-gray-400">Active (visible to customers)</label>
       </div>
+
+      <button 
+        type="submit" 
+        disabled={isPending || uploading}
+        className="w-full bg-neon text-black font-semibold rounded p-2 hover:bg-neon/90 disabled:opacity-50"
+      >
+        {isPending ? 'Saving...' : (item ? 'Save Changes' : 'Add Dish')}
+      </button>
     </form>
   );
 }

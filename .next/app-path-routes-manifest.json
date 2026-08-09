@@ -1,1 +1,1 @@
-{"/_not-found/page":"/_not-found","/uploads/videos/[file]/route":"/uploads/videos/[file]","/(client)/page":"/","/(admin)/admin/login/page":"/admin/login","/(admin)/admin/page":"/admin"}
+{"/_not-found/page":"/_not-found","/(client)/page":"/","/uploads/videos/[file]/route":"/uploads/videos/[file]","/(client)/r/[slug]/page":"/r/[slug]","/(admin)/admin/login/page":"/admin/login","/(admin)/admin/restaurant/[id]/page":"/admin/restaurant/[id]","/(admin)/admin/page":"/admin"}

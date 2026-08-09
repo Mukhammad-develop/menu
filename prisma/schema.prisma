@@ -10,23 +10,56 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Restaurant {
+  id         String     @id @default(cuid())
+  name       String
+  slug       String     @unique
+  logo       String?
+  languages  String     @default("[\"ru\"]") // JSON array of lang codes: uz, ru, en, tr
+  active     Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  categories Category[]
+}
+
 model Category {
-  id    String     @id @default(cuid())
-  name  String
-  slug  String     @unique
-  order Int        @default(0)
-  items MenuItem[]
+  id           String                @id @default(cuid())
+  slug         String                @unique
+  order        Int                   @default(0)
+  restaurantId String
+  restaurant   Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  items        MenuItem[]
+  translations CategoryTranslation[]
+}
+
+model CategoryTranslation {
+  id         String   @id @default(cuid())
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  langCode   String
+  name       String
+
+  @@unique([categoryId, langCode])
 }
 
 model MenuItem {
+  id           String                @id @default(cuid())
+  price        Float
+  videoUrl     String
+  posterUrl    String?
+  order        Int                   @default(0)
+  active       Boolean               @default(true)
+  categoryId   String
+  category     Category              @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  translations MenuItemTranslation[]
+}
+
+model MenuItemTranslation {
   id          String   @id @default(cuid())
+  menuItemId  String
+  menuItem    MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  langCode    String
   title       String
-  description String
-  price       Float
-  videoUrl    String
-  posterUrl   String?
-  order       Int      @default(0)
-  active      Boolean  @default(true)
-  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  categoryId  String
+  description String   @default("")
+
+  @@unique([menuItemId, langCode])
 }
