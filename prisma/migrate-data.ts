@@ -25,8 +25,8 @@ async function main() {
   if (!restaurant) {
     restaurant = await prisma.restaurant.create({
       data: {
-        name: 'My Restaurant',
-        slug: 'my-restaurant',
+        name: 'test',
+        slug: 'test',
         languages: JSON.stringify(['ru']),
       },
     });
