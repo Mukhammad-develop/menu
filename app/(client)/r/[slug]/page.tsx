@@ -13,10 +13,13 @@ export default async function RestaurantPage({ params }: { params: { slug: strin
     notFound();
   }
 
-  const [categories, items] = await Promise.all([
+  const [rawCategories, rawItems] = await Promise.all([
     getCategories(restaurant.id),
     getMenuItems(restaurant.id)
   ]);
+  
+  const categories = JSON.parse(JSON.stringify(rawCategories)) as typeof rawCategories;
+  const items = JSON.parse(JSON.stringify(rawItems)) as typeof rawItems;
 
   return (
     <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-black text-white">Loading...</div>}>

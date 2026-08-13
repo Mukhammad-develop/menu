@@ -7,7 +7,8 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
-  const restaurants = await getRestaurants();
+  const rawRestaurants = await getRestaurants();
+  const restaurants = JSON.parse(JSON.stringify(rawRestaurants)) as typeof rawRestaurants;
   const demoMode = isDemoMode();
 
   return (

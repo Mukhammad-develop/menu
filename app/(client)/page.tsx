@@ -5,7 +5,8 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const restaurants = await getRestaurants();
+  const rawRestaurants = await getRestaurants();
+  const restaurants = JSON.parse(JSON.stringify(rawRestaurants)) as typeof rawRestaurants;
 
   if (restaurants.length === 0) {
     return (

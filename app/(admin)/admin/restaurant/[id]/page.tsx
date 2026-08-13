@@ -41,8 +41,13 @@ export default async function RestaurantDashboard({ params }: { params: { id: st
     redirect('/admin');
   }
 
-  const categories = await getCategories(restaurant.id);
-  const dishes = await getAllMenuItems(restaurant.id);
+  const rawCategories = await getCategories(restaurant.id);
+  const rawDishes = await getAllMenuItems(restaurant.id);
+  
+  // Strip Prisma symbols to avoid Next.js serialization 500 error
+  const categories = JSON.parse(JSON.stringify(rawCategories)) as typeof rawCategories;
+  const dishes = JSON.parse(JSON.stringify(rawDishes)) as typeof rawDishes;
+  
   const demoMode = isDemoMode();
 
   return (
