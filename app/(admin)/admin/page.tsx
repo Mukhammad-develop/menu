@@ -57,10 +57,7 @@ export default async function AdminDashboard() {
               </Link>
               <div className="ml-4 pl-4 border-l border-white/10">
                 <DeleteButton 
-                  action={async () => {
-                    'use server';
-                    return deleteRestaurant(r.id);
-                  }}
+                  action={deleteRestaurant.bind(null, r.id)}
                 />
               </div>
             </div>

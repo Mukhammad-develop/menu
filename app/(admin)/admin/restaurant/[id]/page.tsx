@@ -126,10 +126,7 @@ export default async function RestaurantDashboard({ params }: { params: { id: st
                 }).join(' / ')}
               </div>
               <DeleteButton 
-                action={async () => {
-                  'use server';
-                  return deleteCategory(c.id);
-                }}
+                action={deleteCategory.bind(null, c.id)}
                 text="✕"
                 className="text-gray-400 hover:text-red-500 px-2 text-lg"
               />
@@ -192,10 +189,7 @@ export default async function RestaurantDashboard({ params }: { params: { id: st
                       </a>
                     )}
                     <DeleteButton 
-                      action={async () => {
-                        'use server';
-                        return deleteMenuItem(dish.id);
-                      }}
+                      action={deleteMenuItem.bind(null, dish.id)}
                     />
                     <span className="text-gray-500 group-open:rotate-180 transition-transform">▼</span>
                   </div>
