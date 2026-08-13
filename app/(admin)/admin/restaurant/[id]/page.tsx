@@ -2,6 +2,7 @@ import { getRestaurantById, getCategories, getAllMenuItems, isDemoMode, SUPPORTE
 import { updateRestaurant, createCategory, deleteCategory, deleteMenuItem } from '@/app/actions';
 import DeleteButton from '@/components/DeleteButton';
 import MenuItemForm from '@/components/MenuItemForm';
+import MediaLink from '@/components/MediaLink';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
@@ -189,9 +190,7 @@ export default async function RestaurantDashboard({ params }: { params: { id: st
                   </div>
                   <div className="flex items-center gap-4">
                     {dish.videoUrl && (
-                      <a href={dish.videoUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-neon hover:underline" onClick={e => e.stopPropagation()}>
-                        View Video
-                      </a>
+                      <MediaLink href={dish.videoUrl} text="View Media" />
                     )}
                     <DeleteButton 
                       action={deleteMenuItem.bind(null, dish.id)}
