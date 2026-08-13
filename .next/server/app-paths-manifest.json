@@ -4,6 +4,6 @@
   "/uploads/videos/[file]/route": "app/uploads/videos/[file]/route.js",
   "/(client)/page": "app/(client)/page.js",
   "/(admin)/admin/login/page": "app/(admin)/admin/login/page.js",
-  "/(admin)/admin/page": "app/(admin)/admin/page.js",
-  "/(admin)/admin/restaurant/[id]/page": "app/(admin)/admin/restaurant/[id]/page.js"
+  "/(admin)/admin/restaurant/[id]/page": "app/(admin)/admin/restaurant/[id]/page.js",
+  "/(admin)/admin/page": "app/(admin)/admin/page.js"
 }
