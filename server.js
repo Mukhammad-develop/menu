@@ -3,6 +3,15 @@
 const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
+const fs = require('fs');
+const path = require('path');
+
+const logFile = fs.createWriteStream(path.join(__dirname, 'error.log'), { flags: 'a' });
+const originalError = console.error;
+console.error = function (...args) {
+  logFile.write(new Date().toISOString() + ' ' + args.map(a => typeof a === 'object' ? (a.stack || JSON.stringify(a)) : a).join(' ') + '\n');
+  originalError.apply(console, args);
+};
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
