@@ -7,6 +7,33 @@ import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
+async function handleUpdateRestaurantSettings(formData: FormData) {
+  'use server';
+  const id = formData.get('restaurantId') as string;
+  const name = formData.get('name') as string;
+  const langs = SUPPORTED_LANGUAGES.filter(lang => formData.get(`lang_${lang}`) === 'on') as LangCode[];
+  if (id && name && langs.length > 0) {
+    await updateRestaurant(id, name, langs);
+  }
+}
+
+async function handleCreateCategory(formData: FormData) {
+  'use server';
+  const restaurantId = formData.get('restaurantId') as string;
+  const langsStr = formData.get('languages') as string;
+  if (!restaurantId || !langsStr) return;
+  const languages = langsStr.split(',');
+
+  const translations: Record<string, string> = {};
+  languages.forEach(lang => {
+    const val = formData.get(`name_${lang}`) as string;
+    if (val) translations[lang] = val;
+  });
+  if (Object.keys(translations).length > 0) {
+    await createCategory(restaurantId, translations);
+  }
+}
+
 export default async function RestaurantDashboard({ params }: { params: { id: string } }) {
   const restaurant = await getRestaurantById(params.id);
   
@@ -48,14 +75,8 @@ export default async function RestaurantDashboard({ params }: { params: { id: st
           Restaurant Settings
         </summary>
         <div className="p-4 border-t border-white/10">
-          <form action={async (formData: FormData) => {
-            'use server';
-            const name = formData.get('name') as string;
-            const langs = SUPPORTED_LANGUAGES.filter(lang => formData.get(`lang_${lang}`) === 'on') as LangCode[];
-            if (name && langs.length > 0) {
-              await updateRestaurant(restaurant.id, name, langs);
-            }
-          }} className="space-y-4">
+          <form action={handleUpdateRestaurantSettings} className="space-y-4">
+            <input type="hidden" name="restaurantId" value={restaurant.id} />
             <div>
               <label className="block text-sm mb-1 text-gray-400">Name</label>
               <input 
@@ -116,17 +137,9 @@ export default async function RestaurantDashboard({ params }: { params: { id: st
           ))}
         </div>
 
-        <form action={async (formData: FormData) => {
-          'use server';
-          const translations: Record<string, string> = {};
-          restaurant.languages.forEach(lang => {
-            const val = formData.get(`name_${lang}`) as string;
-            if (val) translations[lang] = val;
-          });
-          if (Object.keys(translations).length > 0) {
-            await createCategory(restaurant.id, translations);
-          }
-        }} className="flex flex-wrap gap-2 items-end p-3 bg-white/5 border border-white/10 rounded-xl">
+        <form action={handleCreateCategory} className="flex flex-wrap gap-2 items-end p-3 bg-white/5 border border-white/10 rounded-xl">
+          <input type="hidden" name="restaurantId" value={restaurant.id} />
+          <input type="hidden" name="languages" value={restaurant.languages.join(',')} />
           {restaurant.languages.map(lang => (
             <div key={lang} className="flex-1 min-w-[150px]">
               <label className="block text-xs mb-1 text-gray-400">Name ({LANGUAGE_LABELS[lang]})</label>
