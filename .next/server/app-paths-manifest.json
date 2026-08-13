@@ -1,9 +1,9 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
-  "/(client)/page": "app/(client)/page.js",
   "/(client)/r/[slug]/page": "app/(client)/r/[slug]/page.js",
+  "/(client)/page": "app/(client)/page.js",
   "/uploads/videos/[file]/route": "app/uploads/videos/[file]/route.js",
-  "/(admin)/admin/restaurant/[id]/page": "app/(admin)/admin/restaurant/[id]/page.js",
+  "/(admin)/admin/login/page": "app/(admin)/admin/login/page.js",
   "/(admin)/admin/page": "app/(admin)/admin/page.js",
-  "/(admin)/admin/login/page": "app/(admin)/admin/login/page.js"
+  "/(admin)/admin/restaurant/[id]/page": "app/(admin)/admin/restaurant/[id]/page.js"
 }

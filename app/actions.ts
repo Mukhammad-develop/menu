@@ -307,9 +307,13 @@ const MIME_TO_EXT: Record<string, string> = {
   'video/quicktime': 'mov',
   'video/x-m4v': 'm4v',
   'video/ogg': 'ogv',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
 };
 
-export async function uploadVideo(
+export async function uploadMedia(
   formData: FormData,
 ): Promise<{ ok: boolean; url?: string; error?: string }> {
   const value = formData.get('video');
@@ -319,17 +323,17 @@ export async function uploadVideo(
     typeof value.arrayBuffer !== 'function' ||
     value.size === 0
   ) {
-    return { ok: false, error: 'No video file provided' };
+    return { ok: false, error: 'No media file provided' };
   }
   const file = value as File;
-  if (!file.type.startsWith('video/')) {
-    return { ok: false, error: 'File must be a video' };
+  if (!file.type.startsWith('video/') && !file.type.startsWith('image/')) {
+    return { ok: false, error: 'File must be a video or image' };
   }
   try {
     const ext =
       MIME_TO_EXT[file.type] ||
       path.extname(file.name ?? '').slice(1).toLowerCase() ||
-      'mp4';
+      (file.type.startsWith('image/') ? 'jpg' : 'mp4');
     const filename = `${Date.now()}-${randomUUID()}.${ext}`;
     const dir = path.join(process.cwd(), 'public', 'uploads', 'videos');
     await mkdir(dir, { recursive: true });

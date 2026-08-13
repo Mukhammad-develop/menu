@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useTransition } from 'react';
-import { createMenuItem, updateMenuItem, uploadVideo } from '@/app/actions';
+import { createMenuItem, updateMenuItem, uploadMedia } from '@/app/actions';
 import { Category, MenuItem, LangCode, LANGUAGE_LABELS } from '@/lib/data';
 
 interface MenuItemFormProps {
@@ -31,7 +31,7 @@ export default function MenuItemForm({ categories, item, restaurantId, languages
 
   const formRef = useRef<HTMLFormElement>(null);
 
-  async function handleVideoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleMediaUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -39,14 +39,14 @@ export default function MenuItemForm({ categories, item, restaurantId, languages
     setError('');
 
     const formData = new FormData();
-    formData.append('video', file);
+    formData.append('video', file); // We still use the 'video' field name for the upload action
 
     try {
-      const res = await uploadVideo(formData);
+      const res = await uploadMedia(formData);
       if (res.ok && res.url) {
         setVideoUrl(res.url);
       } else {
-        setError(res.error || 'Failed to upload video');
+        setError(res.error || 'Failed to upload media');
       }
     } catch (err) {
       setError('An error occurred during upload');
@@ -59,7 +59,7 @@ export default function MenuItemForm({ categories, item, restaurantId, languages
     setError('');
     
     if (!videoUrl) {
-      setError('Video is required');
+      setError('Media (video or photo) is required');
       return;
     }
 
@@ -172,16 +172,20 @@ export default function MenuItemForm({ categories, item, restaurantId, languages
         </div>
 
         <div>
-          <label className="block text-sm mb-1 text-gray-400">Video</label>
+          <label className="block text-sm mb-1 text-gray-400">Media (Video or Photo)</label>
           {videoUrl && (
             <div className="mb-2">
-              <video src={videoUrl} className="h-20 rounded" controls muted />
+              {videoUrl.match(/\.(jpg|jpeg|png|webp|gif)$/i) ? (
+                <img src={videoUrl} alt="Preview" className="h-20 rounded object-cover" />
+              ) : (
+                <video src={videoUrl} className="h-20 rounded" controls muted />
+              )}
             </div>
           )}
           <input 
             type="file" 
-            accept="video/*"
-            onChange={handleVideoUpload}
+            accept="video/*,image/*"
+            onChange={handleMediaUpload}
             disabled={uploading}
             className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-neon file:text-black hover:file:bg-neon/90"
           />

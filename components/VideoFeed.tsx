@@ -137,6 +137,10 @@ export default function VideoFeed({ categories, items, languages }: VideoFeedPro
   );
 }
 
+function isImage(url: string) {
+  return /\.(jpg|jpeg|png|webp|gif)$/i.test(url);
+}
+
 function Slide({
   item,
   active,
@@ -157,32 +161,54 @@ function Slide({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [progress, setProgress] = useState(0);
   const rafRef = useRef<number>();
+  const isImg = isImage(item.videoUrl);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const updateProgress = () => {
-      if (video.duration) {
-        setProgress((video.currentTime / video.duration) * 100);
+    if (!active) {
+      if (videoRef.current) {
+        videoRef.current.pause();
       }
-      rafRef.current = requestAnimationFrame(updateProgress);
-    };
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      return;
+    }
 
-    if (active) {
+    if (isImg) {
+      setProgress(0);
+      let startTime = performance.now();
+      const duration = 5000; // 5 seconds for images
+
+      const updateProgress = (now: number) => {
+        const elapsed = now - startTime;
+        if (elapsed >= duration) {
+          setProgress(100);
+          onEnded();
+        } else {
+          setProgress((elapsed / duration) * 100);
+          rafRef.current = requestAnimationFrame(updateProgress);
+        }
+      };
+      rafRef.current = requestAnimationFrame(updateProgress);
+    } else {
+      const video = videoRef.current;
+      if (!video) return;
+
+      const updateProgress = () => {
+        if (video.duration) {
+          setProgress((video.currentTime / video.duration) * 100);
+        }
+        rafRef.current = requestAnimationFrame(updateProgress);
+      };
+
       video.currentTime = 0;
       setProgress(0);
       video.play().catch(() => {});
       rafRef.current = requestAnimationFrame(updateProgress);
-    } else {
-      video.pause();
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     }
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [active]);
+  }, [active, isImg, onEnded]);
 
   // Keep neighbouring slides mounted for preload, but visually hidden
   if (!active && Math.abs(currentIndex - itemIndex) > 1) {
@@ -198,16 +224,24 @@ function Slide({
         active ? 'z-10 opacity-100' : 'z-0 opacity-0 pointer-events-none'
       }`}
     >
-      <video
-        ref={videoRef}
-        src={item.videoUrl}
-        poster={item.posterUrl ?? undefined}
-        muted
-        playsInline
-        preload={Math.abs(currentIndex - itemIndex) <= 1 ? 'auto' : 'none'}
-        className="h-full w-full object-cover pointer-events-none"
-        onEnded={onEnded}
-      />
+      {isImg ? (
+        <img
+          src={item.videoUrl}
+          className="h-full w-full object-cover pointer-events-none"
+          alt={translatedTitle}
+        />
+      ) : (
+        <video
+          ref={videoRef}
+          src={item.videoUrl}
+          poster={item.posterUrl ?? undefined}
+          muted
+          playsInline
+          preload={Math.abs(currentIndex - itemIndex) <= 1 ? 'auto' : 'none'}
+          className="h-full w-full object-cover pointer-events-none"
+          onEnded={onEnded}
+        />
+      )}
 
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-black/80 via-black/40 to-transparent" />
 
