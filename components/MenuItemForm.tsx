@@ -37,9 +37,10 @@ export default function MenuItemForm({ categories, item, restaurantId, languages
 
     setUploading(true);
     setError('');
+    setVideoUrl(''); // Clear previous URL while uploading
 
     const formData = new FormData();
-    formData.append('video', file); // We still use the 'video' field name for the upload action
+    formData.append('video', file);
 
     try {
       const res = await uploadMedia(formData);
@@ -49,7 +50,7 @@ export default function MenuItemForm({ categories, item, restaurantId, languages
         setError(res.error || 'Failed to upload media');
       }
     } catch (err) {
-      setError('An error occurred during upload');
+      setError('Upload failed. File may be too large. Try a smaller file.');
     } finally {
       setUploading(false);
     }
@@ -180,6 +181,7 @@ export default function MenuItemForm({ categories, item, restaurantId, languages
               ) : (
                 <video src={videoUrl} className="h-20 rounded" controls muted />
               )}
+              <div className="text-sm text-green-400 mt-1">✓ Media uploaded successfully</div>
             </div>
           )}
           <input 
@@ -189,7 +191,7 @@ export default function MenuItemForm({ categories, item, restaurantId, languages
             disabled={uploading}
             className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-neon file:text-black hover:file:bg-neon/90"
           />
-          {uploading && <div className="text-sm text-neon mt-1">Uploading...</div>}
+          {uploading && <div className="text-sm text-neon mt-1 animate-pulse">⏳ Uploading... please wait</div>}
         </div>
       </div>
 
