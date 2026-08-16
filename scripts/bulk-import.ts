@@ -165,7 +165,7 @@ async function main() {
   console.log(`🌍 Using language: ${langCode}`);
 
   // 4. Create/find categories
-  const uniqueCategories = [...new Set(parsed.map(p => p.categoryName))];
+  const uniqueCategories = Array.from(new Set(parsed.map(p => p.categoryName)));
   console.log(`\n📂 Categories needed: ${uniqueCategories.join(', ')}`);
 
   const categoryMap = new Map<string, string>(); // categoryName -> categoryId

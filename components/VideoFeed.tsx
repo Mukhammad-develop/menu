@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Category, type MenuItem, type LangCode, t } from '@/lib/data';
 import CategoryNav from './CategoryNav';
 
@@ -10,7 +10,133 @@ interface VideoFeedProps {
   languages: LangCode[];
 }
 
+// ---------------------------------------------------------------------------
+// Preloader: downloads all media into memory as Blob URLs
+// ---------------------------------------------------------------------------
+
+function useMediaPreloader(items: MenuItem[]) {
+  const [blobMap, setBlobMap] = useState<Map<string, string>>(new Map());
+  const [loaded, setLoaded] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (items.length === 0) {
+      setReady(true);
+      return;
+    }
+
+    // Collect unique URLs
+    const urls = Array.from(new Set(items.map(i => i.videoUrl)));
+    setTotal(urls.length);
+    setLoaded(0);
+
+    const map = new Map<string, string>();
+    let cancelled = false;
+
+    async function preloadAll() {
+      // Download 3 at a time to avoid overwhelming the connection
+      const queue = [...urls];
+      const workers = Array.from({ length: 3 }, async () => {
+        while (queue.length > 0 && !cancelled) {
+          const url = queue.shift()!;
+          try {
+            const res = await fetch(url);
+            const blob = await res.blob();
+            if (!cancelled) {
+              const blobUrl = URL.createObjectURL(blob);
+              map.set(url, blobUrl);
+              setLoaded(prev => prev + 1);
+            }
+          } catch (err) {
+            // If a single file fails, skip it — the original URL will be used
+            console.warn('Failed to preload:', url, err);
+            if (!cancelled) {
+              setLoaded(prev => prev + 1);
+            }
+          }
+        }
+      });
+
+      await Promise.all(workers);
+
+      if (!cancelled) {
+        setBlobMap(new Map(map));
+        setReady(true);
+      }
+    }
+
+    preloadAll();
+
+    return () => {
+      cancelled = true;
+      // Revoke blob URLs on unmount
+      map.forEach(blobUrl => URL.revokeObjectURL(blobUrl));
+    };
+  }, [items]);
+
+  // Helper: get blob URL or fallback to original
+  const getUrl = useCallback(
+    (originalUrl: string) => blobMap.get(originalUrl) || originalUrl,
+    [blobMap],
+  );
+
+  return { ready, loaded, total, getUrl };
+}
+
+// ---------------------------------------------------------------------------
+// Loading Screen
+// ---------------------------------------------------------------------------
+
+function LoadingScreen({ loaded, total }: { loaded: number; total: number }) {
+  const pct = total > 0 ? Math.round((loaded / total) * 100) : 0;
+
+  return (
+    <div className="flex h-[100dvh] w-full flex-col items-center justify-center bg-black text-white">
+      {/* Animated dish icon */}
+      <div className="mb-8 animate-pulse">
+        <svg
+          width="64"
+          height="64"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#C6FF3D"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        >
+          <path d="M4 17h16" />
+          <path d="M5 17a7 7 0 0 1 14 0" />
+          <path d="M12 10V6" />
+          <circle cx="12" cy="5" r="1" fill="#C6FF3D" stroke="none" />
+        </svg>
+      </div>
+
+      <h2 className="mb-2 text-lg font-semibold tracking-wide uppercase text-white/90">
+        Загрузка меню
+      </h2>
+      <p className="mb-6 text-sm text-white/50">
+        {loaded} / {total}
+      </p>
+
+      {/* Progress bar */}
+      <div className="mx-auto w-64 h-1.5 rounded-full bg-white/10 overflow-hidden">
+        <div
+          className="h-full bg-[#C6FF3D] rounded-full transition-all duration-300 ease-out"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+
+      <p className="mt-3 text-xs text-white/30">{pct}%</p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main VideoFeed component
+// ---------------------------------------------------------------------------
+
 export default function VideoFeed({ categories, items, languages }: VideoFeedProps) {
+  const { ready, loaded, total, getUrl } = useMediaPreloader(items);
   const [activeCategory, setActiveCategory] = useState(categories[0]?.slug || '');
   const [index, setIndex] = useState(0);
   const [langCode, setLangCode] = useState<LangCode>(languages[0]);
@@ -26,32 +152,39 @@ export default function VideoFeed({ categories, items, languages }: VideoFeedPro
 
   const current = Math.min(index, Math.max(filtered.length - 1, 0));
 
-  const goNext = () => {
-    if (current < filtered.length - 1) {
-      setIndex(current + 1);
-    } else {
-      const catIndex = categories.findIndex((c) => c.slug === activeCategory);
-      if (catIndex !== -1) {
-        const nextCatIndex = (catIndex + 1) % categories.length;
-        setActiveCategory(categories[nextCatIndex].slug);
+  const goNext = useCallback(() => {
+    setIndex(prev => {
+      const cur = Math.min(prev, Math.max(filtered.length - 1, 0));
+      if (cur < filtered.length - 1) {
+        return cur + 1;
+      } else {
+        const catIndex = categories.findIndex((c) => c.slug === activeCategory);
+        if (catIndex !== -1) {
+          const nextCatIndex = (catIndex + 1) % categories.length;
+          setActiveCategory(categories[nextCatIndex].slug);
+        }
+        return 0;
       }
-    }
-  };
+    });
+  }, [filtered.length, categories, activeCategory]);
 
-  const goPrev = () => {
-    if (current > 0) {
-      setIndex(current - 1);
-    } else {
-      const catIndex = categories.findIndex((c) => c.slug === activeCategory);
-      if (catIndex !== -1) {
-        const prevCatIndex = (catIndex - 1 + categories.length) % categories.length;
-        setActiveCategory(categories[prevCatIndex].slug);
+  const goPrev = useCallback(() => {
+    setIndex(prev => {
+      const cur = Math.min(prev, Math.max(filtered.length - 1, 0));
+      if (cur > 0) {
+        return cur - 1;
+      } else {
+        const catIndex = categories.findIndex((c) => c.slug === activeCategory);
+        if (catIndex !== -1) {
+          const prevCatIndex = (catIndex - 1 + categories.length) % categories.length;
+          setActiveCategory(categories[prevCatIndex].slug);
+        }
+        return 0;
       }
-    }
-  };
+    });
+  }, [filtered.length, categories, activeCategory]);
 
   const onPointerDown = (e: React.PointerEvent) => {
-    // Avoid triggering navigation when clicking on the category nav area
     const target = e.target as HTMLElement;
     if (target.closest('.category-nav-container')) return;
     if (target.closest('.lang-switcher')) return;
@@ -64,6 +197,11 @@ export default function VideoFeed({ categories, items, languages }: VideoFeedPro
       goNext();
     }
   };
+
+  // Show loading screen while preloading
+  if (!ready) {
+    return <LoadingScreen loaded={loaded} total={total} />;
+  }
 
   return (
     <div className="relative h-[100dvh] w-full touch-none select-none overflow-hidden bg-black">
@@ -83,6 +221,7 @@ export default function VideoFeed({ categories, items, languages }: VideoFeedPro
               currentIndex={current}
               itemIndex={i}
               langCode={langCode}
+              getUrl={getUrl}
             />
           ))}
         </div>
@@ -139,6 +278,10 @@ export default function VideoFeed({ categories, items, languages }: VideoFeedPro
   );
 }
 
+// ---------------------------------------------------------------------------
+// Slide component
+// ---------------------------------------------------------------------------
+
 function isImage(url: string) {
   return /\.(jpg|jpeg|png|webp|gif)$/i.test(url);
 }
@@ -151,6 +294,7 @@ function Slide({
   currentIndex,
   itemIndex,
   langCode,
+  getUrl,
 }: {
   item: MenuItem;
   active: boolean;
@@ -159,11 +303,15 @@ function Slide({
   currentIndex: number;
   itemIndex: number;
   langCode: LangCode;
+  getUrl: (url: string) => string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [progress, setProgress] = useState(0);
   const rafRef = useRef<number>();
   const isImg = isImage(item.videoUrl);
+
+  // Use blob URL from preloader (plays from memory, no network needed)
+  const mediaSrc = getUrl(item.videoUrl);
 
   useEffect(() => {
     if (!active) {
@@ -212,8 +360,8 @@ function Slide({
     };
   }, [active, isImg, onEnded]);
 
-  // Keep neighbouring slides mounted for preload, but visually hidden
-  if (!active && Math.abs(currentIndex - itemIndex) > 1) {
+  // Keep all slides mounted since media is in memory (no network cost)
+  if (!active && Math.abs(currentIndex - itemIndex) > 2) {
     return null;
   }
 
@@ -228,18 +376,18 @@ function Slide({
     >
       {isImg ? (
         <img
-          src={item.videoUrl}
+          src={mediaSrc}
           className="h-full w-full object-cover pointer-events-none"
           alt={translatedTitle}
         />
       ) : (
         <video
           ref={videoRef}
-          src={item.videoUrl}
+          src={mediaSrc}
           poster={item.posterUrl ?? undefined}
           muted
           playsInline
-          preload={Math.abs(currentIndex - itemIndex) <= 1 ? 'auto' : 'none'}
+          preload="auto"
           className="h-full w-full object-cover pointer-events-none"
           onEnded={onEnded}
         />
