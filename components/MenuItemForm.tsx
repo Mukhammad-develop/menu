@@ -44,13 +44,14 @@ export default function MenuItemForm({ categories, item, restaurantId, languages
 
     try {
       const res = await uploadMedia(formData);
-      if (res.ok && res.url) {
+      if (res && res.ok && res.url) {
         setVideoUrl(res.url);
       } else {
-        setError(res.error || 'Failed to upload media');
+        const detail = res?.error || 'Server did not respond. Try re-uploading.';
+        setError(`Upload error: ${detail} (file: ${file.name}, size: ${(file.size / 1024 / 1024).toFixed(1)}MB, type: ${file.type || 'unknown'})`);
       }
     } catch (err: any) {
-      setError('Upload failed: ' + (err?.message || 'Unknown error. Try again.'));
+      setError(`Upload failed: ${err?.message || 'Unknown error'} (file: ${file.name}, ${(file.size / 1024 / 1024).toFixed(1)}MB)`);
     } finally {
       setUploading(false);
     }
