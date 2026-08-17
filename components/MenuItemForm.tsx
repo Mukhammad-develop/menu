@@ -47,7 +47,8 @@ export default function MenuItemForm({ categories, item, restaurantId, languages
       if (res && res.ok && res.url) {
         setVideoUrl(res.url);
       } else {
-        const detail = res?.error || 'Server did not respond. Try re-uploading.';
+        const resString = res ? JSON.stringify(res) : 'undefined';
+        const detail = res?.error || `res is: ${resString}`;
         setError(`Upload error: ${detail} (file: ${file.name}, size: ${(file.size / 1024 / 1024).toFixed(1)}MB, type: ${file.type || 'unknown'})`);
       }
     } catch (err: any) {
