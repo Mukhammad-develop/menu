@@ -49,8 +49,8 @@ export default function MenuItemForm({ categories, item, restaurantId, languages
       } else {
         setError(res.error || 'Failed to upload media');
       }
-    } catch (err) {
-      setError('Upload failed. File may be too large. Try a smaller file.');
+    } catch (err: any) {
+      setError('Upload failed: ' + (err?.message || 'Unknown error. Try again.'));
     } finally {
       setUploading(false);
     }

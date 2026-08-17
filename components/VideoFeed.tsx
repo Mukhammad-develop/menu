@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Category, type MenuItem, type LangCode, t } from '@/lib/data';
 import CategoryNav from './CategoryNav';
+import LangSwitcher from './LangSwitcher';
 
 interface VideoFeedProps {
   categories: Category[];
@@ -227,24 +228,10 @@ export default function VideoFeed({ categories, items, languages }: VideoFeedPro
         </div>
       )}
 
-      {/* Language Switcher */}
-      {languages.length > 1 && (
-        <div className="lang-switcher absolute top-6 right-4 z-20 flex gap-1 pointer-events-auto">
-          {languages.map((lang) => (
-            <button
-              key={lang}
-              onClick={() => setLangCode(lang)}
-              className={`px-2 py-1 text-xs font-bold rounded transition-colors ${
-                lang === langCode 
-                  ? 'bg-[#C6FF3D] text-black' 
-                  : 'bg-black/40 text-white/70 backdrop-blur-md'
-              }`}
-            >
-              {lang.toUpperCase()}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Language Switcher - positioned below progress bars */}
+      <div className="absolute top-14 right-4 z-20">
+        <LangSwitcher languages={languages} current={langCode} onChange={setLangCode} />
+      </div>
 
       {/* Anchored bottom UI: category carousel + "Меню" label. */}
       <div className="category-nav-container absolute inset-x-0 bottom-0 z-20 pb-3 pointer-events-none">

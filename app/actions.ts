@@ -326,8 +326,13 @@ export async function uploadMedia(
     return { ok: false, error: 'No media file provided' };
   }
   const file = value as File;
-  if (!file.type.startsWith('video/') && !file.type.startsWith('image/')) {
-    return { ok: false, error: 'File must be a video or image' };
+  const fileExt = path.extname(file.name ?? '').slice(1).toLowerCase();
+  const isVideoMime = file.type.startsWith('video/');
+  const isImageMime = file.type.startsWith('image/');
+  const isValidExt = ['mp4','webm','mov','m4v','ogv','jpg','jpeg','png','webp','gif'].includes(fileExt);
+  
+  if (!isVideoMime && !isImageMime && !isValidExt) {
+    return { ok: false, error: `File must be a video or image (got type: "${file.type}", ext: "${fileExt}")` };
   }
   try {
     const ext =
